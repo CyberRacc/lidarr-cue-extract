@@ -1,2 +1,6 @@
-# lidarr-cue-extract
-Extract .flac/.cue files into their track files.
+
+# WARNING
+
+This repository is for testing, script does not work as intended right now.
+
+Please do not use!
