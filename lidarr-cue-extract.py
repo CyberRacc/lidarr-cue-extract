@@ -6,11 +6,9 @@ import sys
 def split_flac_with_cue(album_dir):
     print(f"Processing directory: {album_dir}")
 
-    # Check for .flac and .cue files in the album directory
     flac_files = [f for f in os.listdir(album_dir) if f.endswith('.flac')]
     cue_files = [f for f in os.listdir(album_dir) if f.endswith('.cue')]
 
-    # If there's more than one .flac file or no .cue file, exit
     if len(flac_files) != 1 or len(cue_files) == 0:
         print(f"Skipping directory. Found {len(flac_files)} FLAC files and {len(cue_files)} CUE files.")
         return
@@ -21,35 +19,34 @@ def split_flac_with_cue(album_dir):
     with open(cue_file, 'r') as f:
         cue_content = f.read()
 
-    # Extract album information
-    matches = re.findall(r'TITLE "(.*?)"', cue_content)
-    album_title = matches[0] if matches else "Unknown Album"
-    print(f"Album Title: {album_title}")
-    
-    # Extract track information
     tracks = re.findall(r'TRACK (\d+) AUDIO.*?TITLE "(.*?)".*?INDEX 01 (\d+:\d+:\d+)', cue_content, re.DOTALL)
-    
-    for track in tracks:
-        track_num, track_title, start_time = track
+
+    for index, (track_num, track_title, start_time) in enumerate(tracks):
+        track_num = track_num.zfill(2)
         
-        # Convert start time to seconds
         mins, secs, frames = map(int, start_time.split(':'))
         start_seconds = mins * 60 + secs + frames / 75.0
-        
-        # Set output file name
+
+        if index + 1 < len(tracks):
+            next_mins, next_secs, next_frames = map(int, tracks[index + 1][2].split(':'))
+            next_start_seconds = next_mins * 60 + next_secs + next_frames / 75.0
+            duration = next_start_seconds - start_seconds
+            duration_option = ['-t', str(duration)]
+        else:
+            duration_option = []
+
         output_file = os.path.join(album_dir, f"{track_num} - {track_title}.flac")
-        
-        # Use ffmpeg to split flac
-        print(f"Extracting track {track_num}: {track_title} to {output_file}")
+
         cmd = [
             'ffmpeg',
             '-i', flac_file,
             '-ss', str(start_seconds),
-            '-t', '30',  # Assuming a max track length of 30 mins. Adjust if needed.
+            *duration_option,
             '-c', 'copy',
+            '-map_metadata', '0',
             output_file
         ]
-        subprocess.run(cmd, capture_output=True)
+        subprocess.run(cmd, capture_output=True, text=True)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
